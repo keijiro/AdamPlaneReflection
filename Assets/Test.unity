@@ -128,7 +128,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!23 &412644342
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -263,6 +263,64 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 17, y: 0, z: 0}
+--- !u!1001 &1031548346
+Prefab:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_RootOrder
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 400000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 180
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+  m_ParentPrefab: {fileID: 100100000, guid: cb16f5e913ff9ae43bc6d95c5f7a614a, type: 3}
+  m_IsPrefabParent: 0
 --- !u!1 &1061216143
 GameObject:
   m_ObjectHideFlags: 0
@@ -293,27 +351,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   convolveShader: {fileID: 4800000, guid: d9a320f83343d6045a4e3a1eb8cf4d64, type: 3}
-  maskShader: {fileID: 4800000, guid: 02cf5fe76e095a045ab34e6166d0ed25, type: 3}
-  replacementShader: {fileID: 0}
   reflectionMapSize: 2048
   reflectLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  maxDistance: 15
   clipPlaneOffset: 0.01
   clipSkyDome: 0
   nearPlaneDistance: 0.1
   farPlaneDistance: 15
   mipShift: 0
-  useMask: 0
   useDepth: 1
   depthScale: 0.1
   depthExponent: 1.63
   depthRayPinchFadeSteps: 4
-  explicitMaterials: []
-  disableScattering: 0
-  scatterWorldFakePush: -1
-  scatterHeightFakePush: -1
   renderShadows: 0
   shadowDistance: 200
   maxPixelLights: -1
@@ -439,7 +489,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1264455903}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 2, z: 1.5}
+  m_LocalPosition: {x: 0, y: 1.5, z: 1.5}
   m_LocalScale: {x: 3, y: 3, z: 3}
   m_Children: []
   m_Father: {fileID: 0}
