@@ -1,5 +1,3 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
 Shader "Hidden/Volund/Mask Plane" {
 SubShader {
 	Tags { "Queue"="AlphaTest+51" }

@@ -1,12 +1,3 @@
-//#define ALLOW_ATMOSPHERICS_DEPENDENCY
-//#define ALLOW_UNIQUESHADOW_DEPENDENCY
-//#define PLANE_REFLECTION_CHEAPER
-//#define USE_GLOBAL_KEYWORDS
-
-// Can't use temp main buffer because Unity won't allow us to explicitly
-// render to each of the mip levels in a temporary render texture.
-
-
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -23,7 +14,7 @@ public class PlaneReflection : MonoBehaviour {
 
 	[HideInInspector] public Shader convolveShader;
 	[HideInInspector] public Shader maskShader;
-	/*[HideInInspector]*/ public Shader replacementShader;
+	[HideInInspector] public Shader replacementShader;
    
 	public Dimension	reflectionMapSize = Dimension.x1024;
 	public LayerMask	reflectLayerMask = ~0;
@@ -46,16 +37,10 @@ public class PlaneReflection : MonoBehaviour {
 	public float 		shadowDistance = 200f;
 	public int			maxPixelLights = -1;
 	public Color		clearColor = Color.gray;
-	public UnityEngine.RenderingPath renderingPath = UnityEngine.RenderingPath.UsePlayerSettings;
+	public RenderingPath renderingPath = UnityEngine.RenderingPath.UsePlayerSettings;
 
-#if PLANE_REFLECTION_CHEAPER
-	int 						m_downscale = 0;
-#endif
 	Shader						m_lodShader;
 	int 						m_lodShaderLod;
-#if ALLOW_UNIQUESHADOW_DEPENDENCY
-	bool						m_cookielessMainlight;
-#endif
 	
 public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 	RenderTexture				m_reflectionDepthMap;
@@ -71,22 +56,10 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 	bool 						m_isActive;
 	Renderer					m_renderer;
 
-#if PLANE_REFLECTION_CHEAPER
-	public void SetDownscale(int ds) {
-		m_downscale = ds;
-	}
-#endif
-
 	public void SetShaderLod(Shader shader, int lod) {
 		m_lodShader = shader;
 		m_lodShaderLod = lod;
 	}
-
-#if ALLOW_UNIQUESHADOW_DEPENDENCY
-	public void SetCookielessMainlight(bool b) {
-		m_cookielessMainlight = b;
-	}
-#endif
 
 #if UNITY_EDITOR
 	void OnValidate() {
@@ -154,11 +127,6 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 		else
 			m_convolveMaterial.DisableKeyword("USE_MASK");
 
-#if PLANE_REFLECTION_CHEAPER
-		m_convolveMaterial.EnableKeyword("PLANE_REFLECTION_CHEAPER");
-#else
-		m_convolveMaterial.DisableKeyword("PLANE_REFLECTION_CHEAPER");
-#endif
 		m_convolveMaterial.hideFlags = HideFlags.DontSave | HideFlags.NotEditable;
 
 		if(CheckSupport())
@@ -166,12 +134,8 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 	}
 	
 	void OnDisable() {
-#if USE_GLOBAL_KEYWORDS
-		Shader.DisableKeyword("PLANE_REFLECTION");
-#else
 		for(int i = 0, n = m_materials.Length; i < n; ++i)
 			m_materials[i].DisableKeyword("PLANE_REFLECTION");
-#endif
 
 		m_isActive = false;
 	}
@@ -204,29 +168,6 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 		if(active == m_isActive)
 			return m_isActive;
 
-//		if(cam == m_renderCamera) {
-//			if(active) {
-//#if USE_GLOBAL_KEYWORDS
-//				Shader.EnableKeyword("PLANE_REFLECTION");
-//#else
-//				for(int i = 0, n = m_materials.Length; i < n; ++i)
-//					m_materials[i].EnableKeyword("PLANE_REFLECTION");
-//#endif
-//			} else {
-//#if USE_GLOBAL_KEYWORDS
-//				Shader.DisableKeyword("PLANE_REFLECTION");
-//#else
-//				for(int i = 0, n = m_materials.Length; i < n; ++i)
-//					m_materials[i].DisableKeyword("PLANE_REFLECTION");
-//#endif
-
-//				// This is probably temp, we'd like to keep this around, or at
-//				// the very least shared between instances!
-//				Object.DestroyImmediate(m_reflectionMap);
-//				m_reflectionMap = null;
-//			}
-//		}
-
 		return m_isActive = active;
 	}
 
@@ -243,12 +184,6 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 			m_renderCamera = Camera.current;
 #endif
 		} else {
-//#if USE_GLOBAL_KEYWORDS
-//			Shader.DisableKeyword("PLANE_REFLECTION");
-//#else
-//			for(int i = 0, n = m_materials.Length; i < n; ++i)
-//				m_materials[i].DisableKeyword("PLANE_REFLECTION");
-//#endif
 			return;
 		}
 
@@ -261,15 +196,7 @@ public RenderTexture			m_reflectionMap; //hacked public for easier debugging
 		EnsureReflectionTexture();
 		EnsureResolveDepthHooks();
 
-#if PLANE_REFLECTION_CHEAPER
-		var reflectionMapDim = (int)reflectionMapSize >> m_downscale;
-		var reflectionMap0 = RenderTexture.GetTemporary(reflectionMapDim, reflectionMapDim, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Default);
-		//reflectionMap0.useMipMap = false;
-		reflectionMap0.filterMode = FilterMode.Bilinear;
-		reflectionMap0.name = "PlaneReflection Full";
-#else
 		var reflectionMap0 = m_reflectionMap;
-#endif
 
 		// find the reflection plane: position and normal in world space
 		Vector3 pos = transform.position;
@@ -320,64 +247,11 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		Shader.SetGlobalVector("_PlaneReflectionClipPlane", reflectionPlane);
 		Shader.EnableKeyword("PLANE_REFLECTION_USER_CLIPPLANE");
 
-#if ALLOW_ATMOSPHERICS_DEPENDENCY
-		bool scatteringOcclusionWasEnabled = Shader.IsKeywordEnabled("ATMOSPHERICS_OCCLUSION");
-		Shader.DisableKeyword("ATMOSPHERICS_OCCLUSION");
-
-		bool scatteringWasEnabled = Shader.IsKeywordEnabled("ATMOSPHERICS");
-		if(disableScattering && scatteringWasEnabled)
-			Shader.DisableKeyword("ATMOSPHERICS");
-
-		float oldScatterPushW = float.MaxValue;
-		float oldScatterPushH = float.MaxValue;
-		// HACKY HACKS FOLLOW! 
-		var s = AtmosphericScattering.instance;
-		if(s && scatterWorldFakePush >= 0f) {
-			oldScatterPushW = -Mathf.Pow(Mathf.Abs(s.worldNearScatterPush), s.worldScaleExponent) * Mathf.Sign(s.worldNearScatterPush);
-			Shader.SetGlobalFloat("u_WorldNearScatterPush", -Mathf.Pow(Mathf.Abs(scatterWorldFakePush), s.worldScaleExponent) * Mathf.Sign(scatterWorldFakePush));
-		}
-		if(s && scatterWorldFakePush >= 0f) {
-			oldScatterPushH = -Mathf.Pow(Mathf.Abs(s.heightNearScatterPush), s.worldScaleExponent) * Mathf.Sign(s.heightNearScatterPush);
-			Shader.SetGlobalFloat("u_HeightNearScatterPush", -Mathf.Pow(Mathf.Abs(scatterHeightFakePush), s.worldScaleExponent) * Mathf.Sign(scatterHeightFakePush));
-		}
-
-		if(clipSkyDome) {
-			Shader.EnableKeyword("CLIP_SKYDOME");
-			Shader.SetGlobalFloat("u_SkyDomeClipHeight", transform.position.y + clipPlaneOffset);
-		}
-#endif
-
 		int oldLodShaderLod = 0;
 		if(m_lodShader) {
 			oldLodShaderLod = m_lodShader.maximumLOD;
 			m_lodShader.maximumLOD = m_lodShaderLod;
 		}
-
-#if ALLOW_UNIQUESHADOW_DEPENDENCY
-		Light oldMainLight = null;
-		Texture oldMainLightCookie = null;
-		if(m_cookielessMainlight) {
-			var mask = ~((1 << LayerMask.NameToLayer("Characters")) | (1 << LayerMask.NameToLayer("CharactersSkin")));
-
-			// Try somewhat hard to find an active directional cookie light since it has a big impact.
-            var cookieLight = UniqueShadowSun.instance && (UniqueShadowSun.instance.cullingMask & mask) != 0 ? UniqueShadowSun.instance : null;
-			             if(!cookieLight) {
-				var suns = GameObject.FindGameObjectsWithTag("Sun");
-				for(int i = 0, n = suns.Length; i < n; ++i) {
-					var sl = suns[i].GetComponent<Light>();
-					if(sl && sl.enabled && (sl.cullingMask & mask)!= 0 && sl.cookie) {
-						cookieLight = sl;
-						break;
-					}
-				}
-			}
-			if(cookieLight) {
-				oldMainLight = cookieLight;
-				oldMainLightCookie = cookieLight.cookie;
-				cookieLight.cookie = null;
-			}
-		}
-#endif
 
 		var oldShadowDist = QualitySettings.shadowDistance;
 		if(!renderShadows)
@@ -389,12 +263,8 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		if(maxPixelLights != -1)
 			QualitySettings.pixelLightCount = maxPixelLights;
 
-#if USE_GLOBAL_KEYWORDS
-		Shader.DisableKeyword("PLANE_REFLECTION");
-#else
 		for(int i = 0, n = m_materials.Length; i < n; ++i)
 			m_materials[i].DisableKeyword("PLANE_REFLECTION");
-#endif
 
 		GL.invertCulling = true;
         if(replacementShader)
@@ -402,22 +272,13 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		m_reflectionCamera.Render();
 		GL.invertCulling = false;
 
-#if USE_GLOBAL_KEYWORDS
-		Shader.EnableKeyword("PLANE_REFLECTION");
-#else
 		for(int i = 0, n = m_materials.Length; i < n; ++i)
 			m_materials[i].EnableKeyword("PLANE_REFLECTION");
-#endif
 
 		if(!renderShadows || shadowDistance > 0f)
 			QualitySettings.shadowDistance = oldShadowDist;
 		if(maxPixelLights != -1)
 			QualitySettings.pixelLightCount = oldPixelLights;
-
-#if ALLOW_UNIQUESHADOW_DEPENDENCY
-		if(oldMainLight)
-			oldMainLight.cookie = oldMainLightCookie;
-#endif
 
 		if(m_lodShader)
 			m_lodShader.maximumLOD = oldLodShaderLod;
@@ -428,27 +289,7 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		Convolve(m_reflectionCamera.targetTexture, m_reflectionDepthMap);
 		m_reflectionCamera.targetTexture = null;
 
-#if ALLOW_ATMOSPHERICS_DEPENDENCY
-		if(scatteringOcclusionWasEnabled)
-			Shader.EnableKeyword("ATMOSPHERICS_OCCLUSION");
-
-		if(disableScattering && scatteringWasEnabled)
-			Shader.EnableKeyword("ATMOSPHERICS");
-
-		if(oldScatterPushW != float.MaxValue)
-			Shader.SetGlobalFloat("u_WorldNearScatterPush", oldScatterPushW);
-		if(oldScatterPushH != float.MaxValue)
-			Shader.SetGlobalFloat("u_HeightNearScatterPush", oldScatterPushH);
-
-		if(clipSkyDome)
-			Shader.DisableKeyword("CLIP_SKYDOME");
-#endif
-
 		float mipCount = Mathf.Max(0f, Mathf.Round(Mathf.Log ((float)m_reflectionMap.width, 2f)) - mipShift);
-#if USE_GLOBAL_KEYWORDS
-		Shader.SetGlobalFloat("_PlaneReflectionLodSteps", mipCount);
-		Shader.SetGlobalTexture("_PlaneReflection", m_reflectionMap);
-#else
 		for(int i = 0, n = m_materials.Length; i < n; ++i) {
 			var m = m_materials[i];
 			if(useMask)
@@ -456,15 +297,10 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 			m.SetFloat("_PlaneReflectionLodSteps", mipCount);
 			m.SetTexture("_PlaneReflection", m_reflectionMap);
 		}
-#endif
 	}
 
 	void EnsureReflectionTexture() {
-#if PLANE_REFLECTION_CHEAPER
-		var expectedSize = (int)reflectionMapSize >> 1;
-#else
 		var expectedSize = (int)reflectionMapSize;
-#endif
 		if(m_reflectionMap == null || m_reflectionMap.width != expectedSize || ((m_reflectionMap.depth == 0) == (m_reflectionCamera.actualRenderingPath == RenderingPath.Forward))) {
 			Object.DestroyImmediate(m_reflectionMap);
 			Object.DestroyImmediate(m_reflectionDepthMap);
@@ -566,56 +402,12 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 
 		m_convolveMaterial.SetTexture("_CameraDepthTextureCopy", reflectionDepth);
 
-#if PLANE_REFLECTION_CHEAPER
-		ConvolveStep(0, reflectionMap0, 0, m_reflectionMap, 0);
-		RenderTexture.ReleaseTemporary(reflectionMap0);
-
-		for(int i = 0, n = m_reflectionMap.width; (n >> i) > 1; ++i) 
-			ConvolveStep(i + 1, m_reflectionMap, i, m_reflectionMap, i+1);
-
-		m_convolveMaterial.DisableKeyword("CP3");
-#else
 		for(int i = 0, n = m_reflectionMap.width; (n >> i) > 1; ++i) 
 			ConvolveStep(i, m_reflectionMap, i, i+1);
-#endif
 
 		RenderTexture.active = oldRT;
 	}
 
-#if PLANE_REFLECTION_CHEAPER
-	void ConvolveStep(RenderTexture srcMap, int srcMip, RenderTexture dstMap, int dstMip) {
-		var srcSize = srcMap.width >> srcMip;
-		var tmp = RenderTexture.GetTemporary(srcSize >> 1, srcSize, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
-		tmp.name = "PlaneReflection Half";
-
-		if(dstMip == 0) {
-			m_convolveMaterial.EnableKeyword("CP0");
-		} else if(dstMip == 1) {
-			m_convolveMaterial.DisableKeyword("CP0");
-			m_convolveMaterial.EnableKeyword("CP1");
-		} else if(dstMip == 2) {
-			m_convolveMaterial.DisableKeyword("CP1");
-			m_convolveMaterial.EnableKeyword("CP2");
-		} else  {
-			m_convolveMaterial.DisableKeyword("CP2");
-			m_convolveMaterial.EnableKeyword("CP3");
-		}
-
-
-		var power = 2048 >> dstMip;
-		m_convolveMaterial.SetFloat("_CosPower", (float)power / 1000f);
-		
-		m_convolveMaterial.SetFloat("_SampleMip", (float)srcMip);
-		Graphics.SetRenderTarget(tmp, 0);
-		Graphics.Blit(srcMap, m_convolveMaterial, 0);
-		
-		m_convolveMaterial.SetFloat("_SampleMip", 0f);
-		Graphics.SetRenderTarget(dstMap, dstMip);
-		Graphics.Blit(tmp, m_convolveMaterial, 1);
-		
-		RenderTexture.ReleaseTemporary(tmp);
-	}
-#else
 	void ConvolveStep(int step, RenderTexture srcMap, int srcMip, int dstMip) {
 		var srcSize = m_reflectionMap.width >> srcMip;
 		var tmp = RenderTexture.GetTemporary(srcSize, srcSize, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
@@ -634,7 +426,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		
 		RenderTexture.ReleaseTemporary(tmp);
 	}
-#endif
 	
 	static void CustomGraphicsBlit(RenderTexture src, Material mat, int pass) {
 		mat.SetTexture("_MainTex", src);
@@ -669,12 +460,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 		//Debug.LogFormat("OnRenderObject: {0} from camera {1} (self rendercam: {2})", name, Camera.current.name, m_renderCamera);
 
 		if(Camera.current != m_renderCamera) {
-//#if USE_GLOBAL_KEYWORDS
-//			Shader.EnableKeyword("PLANE_REFLECTION");
-//#else
-//			for(int i = 0, n = m_materials.Length; i < n; ++i)
-//				m_materials[i].EnableKeyword("PLANE_REFLECTION");
-//#endif
 		} else {
 			m_renderCamera = null;
 		}
