@@ -240,12 +240,12 @@ Camera:
   m_CullingMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_RenderingPath: 1
+  m_RenderingPath: 3
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
   m_HDR: 1
-  m_AllowMSAA: 1
+  m_AllowMSAA: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 0
   m_StereoConvergence: 10
@@ -319,7 +319,6 @@ MonoBehaviour:
   maxPixelLights: -1
   clearColor: {r: 0.20036764, g: 0.22535498, b: 0.25, a: 1}
   renderingPath: -1
-  m_reflectionMap: {fileID: 0}
   ssnap: 0
 --- !u!23 &1061216145
 MeshRenderer:
