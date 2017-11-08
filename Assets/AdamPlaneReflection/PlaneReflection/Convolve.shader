@@ -12,8 +12,6 @@ CGINCLUDE
 
 #include "UnityCG.cginc"
 
-#define MASK_REFLECTION
-
 uniform sampler2D _MainTex;
 uniform float4 _MainTex_TexelSize;
 
@@ -90,30 +88,15 @@ float4 frag(v2f i, const float2 dir) {
 			continue;
 		
 		float4 s = tex2Dlod(_MainTex, uv);
-#ifdef USE_MASK
-		if(s.a > -0.5f)
-			continue;
-#endif
 
 		float c = clamp(i / 20.f, -1.57f, 1.57f);
 		float w = pow(max(0.f, cos(c)), _CosPower);
 	
-#ifdef USE_MASK
-		color += s * w;
-#else
 		color.rgb += s.rgb * w;
-#endif
 		weight += w;
 	}
 
-#ifdef USE_MASK
-	if(weight == 0.f)
-		return 1.f;
-	else
-		return color / weight;
-#else
 		return color.rgbb / weight;
-#endif
 }
 
 float4 fragH(v2f i) : COLOR { return frag(i, float2(1.f, 0.f)); }
@@ -136,7 +119,6 @@ SubShader {
 		#pragma vertex vert
 		#pragma fragment fragH
 		#pragma multi_compile _ USE_DEPTH
-		#pragma multi_compile _ USE_MASK
 		#pragma multi_compile _ CP0 CP1 CP2 CP3
 		ENDCG
 	}
@@ -146,7 +128,6 @@ SubShader {
 		#pragma vertex vert
 		#pragma fragment fragV
 		#pragma multi_compile _ USE_DEPTH
-		#pragma multi_compile _ USE_MASK
 		#pragma multi_compile _ CP0 CP1 CP2 CP3
 		ENDCG
 	}

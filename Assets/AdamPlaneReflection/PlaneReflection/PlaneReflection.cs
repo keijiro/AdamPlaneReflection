@@ -13,7 +13,6 @@ public class PlaneReflection : MonoBehaviour {
     }
 
     [HideInInspector] public Shader convolveShader;
-    [HideInInspector] public Shader maskShader;
     [HideInInspector] public Shader replacementShader;
 
     public Dimension    reflectionMapSize = Dimension.x1024;
@@ -24,7 +23,6 @@ public class PlaneReflection : MonoBehaviour {
     public float        nearPlaneDistance = 0.1f;
     public float        farPlaneDistance = 25f;
     public float        mipShift;
-    public bool         useMask;
     public bool         useDepth = true;
     public float        depthScale = 1.25f;
     public float        depthExponent = 2.25f;
@@ -94,9 +92,6 @@ public class PlaneReflection : MonoBehaviour {
     }
 
     void OnEnable() {
-        if(!maskShader)
-            return;
-
         if (m_renderer == null)
             m_renderer = GetComponent<Renderer>();
 
@@ -121,11 +116,6 @@ public class PlaneReflection : MonoBehaviour {
         } else {
             m_convolveMaterial.DisableKeyword("USE_DEPTH");
         }
-
-        if(useMask)
-            m_convolveMaterial.EnableKeyword("USE_MASK");
-        else
-            m_convolveMaterial.DisableKeyword("USE_MASK");
 
         m_convolveMaterial.hideFlags = HideFlags.DontSave | HideFlags.NotEditable;
 
@@ -292,8 +282,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
         float mipCount = Mathf.Max(0f, Mathf.Round(Mathf.Log ((float)m_reflectionMap.width, 2f)) - mipShift);
         for(int i = 0, n = m_materials.Length; i < n; ++i) {
             var m = m_materials[i];
-            if(useMask)
-                m.shader = m_shaders[i];
             m.SetFloat("_PlaneReflectionLodSteps", mipCount);
             m.SetTexture("_PlaneReflection", m_reflectionMap);
         }
