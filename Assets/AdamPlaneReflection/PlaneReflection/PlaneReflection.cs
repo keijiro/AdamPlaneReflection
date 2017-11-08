@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using System.Collections.Generic;
 
 [ExecuteInEditMode]
@@ -13,11 +14,9 @@ public class PlaneReflection : MonoBehaviour {
     }
 
     [HideInInspector] public Shader convolveShader;
-    [HideInInspector] public Shader replacementShader;
 
     public Dimension    reflectionMapSize = Dimension.x1024;
     public LayerMask    reflectLayerMask = ~0;
-    public float        maxDistance = 80f;
     public float        clipPlaneOffset = 0.01f;
     public bool         clipSkyDome;
     public float        nearPlaneDistance = 0.1f;
@@ -27,37 +26,21 @@ public class PlaneReflection : MonoBehaviour {
     public float        depthScale = 1.25f;
     public float        depthExponent = 2.25f;
     public float        depthRayPinchFadeSteps = 4f;
-    public Material[]   explicitMaterials;
-    public bool         disableScattering;
-    public float        scatterWorldFakePush = -1f;
-    public float        scatterHeightFakePush = -1f;
     public bool         renderShadows = false;
     public float        shadowDistance = 200f;
     public int          maxPixelLights = -1;
     public Color        clearColor = Color.gray;
-    public RenderingPath renderingPath = UnityEngine.RenderingPath.UsePlayerSettings;
-
-    Shader                      m_lodShader;
-    int                         m_lodShaderLod;
+    public RenderingPath renderingPath = RenderingPath.UsePlayerSettings;
 
     RenderTexture               m_reflectionMap;
     RenderTexture               m_reflectionDepthMap;
-    UnityEngine.Rendering.CommandBuffer m_copyDepthCB;
+    CommandBuffer m_copyDepthCB;
     Camera                      m_reflectionCamera;
     Camera                      m_renderCamera;
 
     Material[]                  m_materials = new Material[0];
-    Shader[]                    m_shaders;
 
     Material                    m_convolveMaterial;
-
-    bool                        m_isActive;
-    Renderer                    m_renderer;
-
-    public void SetShaderLod(Shader shader, int lod) {
-        m_lodShader = shader;
-        m_lodShaderLod = lod;
-    }
 
 #if UNITY_EDITOR
     void OnValidate() {
@@ -76,8 +59,6 @@ public class PlaneReflection : MonoBehaviour {
     }
 
     void Awake() {
-        m_renderer = GetComponent<Renderer>();
-
         if(!convolveShader)
             convolveShader = Shader.Find("Hidden/Volund/Convolve");
 
@@ -92,18 +73,7 @@ public class PlaneReflection : MonoBehaviour {
     }
 
     void OnEnable() {
-        if (m_renderer == null)
-            m_renderer = GetComponent<Renderer>();
-
-        if(explicitMaterials != null && explicitMaterials.Length > 0)
-            m_materials = explicitMaterials;
-        else
-            m_materials = m_renderer.sharedMaterials;
-
-        m_shaders = m_shaders != null && m_shaders.Length == m_materials.Length ? m_shaders : new Shader[m_materials.Length];
-
-        for(int i = 0, n = m_materials.Length; i < n; ++i)
-            m_shaders[i] = m_materials[i].shader;
+        m_materials = GetComponent<Renderer>().sharedMaterials;
 
         if(!m_convolveMaterial)
             m_convolveMaterial = new Material(convolveShader);
@@ -126,8 +96,6 @@ public class PlaneReflection : MonoBehaviour {
     void OnDisable() {
         for(int i = 0, n = m_materials.Length; i < n; ++i)
             m_materials[i].DisableKeyword("PLANE_REFLECTION");
-
-        m_isActive = false;
     }
 
     void OnDestroy() {
@@ -144,23 +112,6 @@ public class PlaneReflection : MonoBehaviour {
         Object.DestroyImmediate(m_reflectionDepthMap);
     }
 
-    void OnBecameInvisible() {
-        CheckCulling(null);
-    }
-
-    bool CheckCulling(Camera cam) {
-        bool active = false;
-        if(cam) {
-            var d2 = Vector3.SqrMagnitude(transform.position - cam.transform.position);
-            active = d2 < maxDistance * maxDistance;
-        }
-
-        if(active == m_isActive)
-            return m_isActive;
-
-        return m_isActive = active;
-    }
-
     public void OnWillRenderObject() {
         if(!CheckSupport())
             return;
@@ -174,11 +125,6 @@ public class PlaneReflection : MonoBehaviour {
             m_renderCamera = Camera.current;
 #endif
         } else {
-            return;
-        }
-
-        if(!CheckCulling(m_renderCamera)) {
-            m_renderCamera = null;
             return;
         }
 
@@ -237,12 +183,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
         Shader.SetGlobalVector("_PlaneReflectionClipPlane", reflectionPlane);
         Shader.EnableKeyword("PLANE_REFLECTION_USER_CLIPPLANE");
 
-        int oldLodShaderLod = 0;
-        if(m_lodShader) {
-            oldLodShaderLod = m_lodShader.maximumLOD;
-            m_lodShader.maximumLOD = m_lodShaderLod;
-        }
-
         var oldShadowDist = QualitySettings.shadowDistance;
         if(!renderShadows)
             QualitySettings.shadowDistance = 0f;
@@ -257,8 +197,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
             m_materials[i].DisableKeyword("PLANE_REFLECTION");
 
         GL.invertCulling = true;
-        if(replacementShader)
-            m_reflectionCamera.SetReplacementShader(replacementShader, "");
         m_reflectionCamera.Render();
         GL.invertCulling = false;
 
@@ -269,9 +207,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
             QualitySettings.shadowDistance = oldShadowDist;
         if(maxPixelLights != -1)
             QualitySettings.pixelLightCount = oldPixelLights;
-
-        if(m_lodShader)
-            m_lodShader.maximumLOD = oldLodShaderLod;
 
         Shader.DisableKeyword("PLANE_REFLECTION_USER_CLIPPLANE");
 
@@ -307,18 +242,18 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
 
     void EnsureResolveDepthHooks() {
         if(m_copyDepthCB == null) {
-            m_copyDepthCB = new UnityEngine.Rendering.CommandBuffer();
+            m_copyDepthCB = new CommandBuffer();
             m_copyDepthCB.name = "CopyResolveReflectionDepth";
             m_copyDepthCB.Blit(
-                new UnityEngine.Rendering.RenderTargetIdentifier(UnityEngine.Rendering.BuiltinRenderTextureType.None),
-                new UnityEngine.Rendering.RenderTargetIdentifier(m_reflectionDepthMap),
+                new RenderTargetIdentifier(BuiltinRenderTextureType.None),
+                new RenderTargetIdentifier(m_reflectionDepthMap),
                 m_convolveMaterial,
                 2
             );
         }
 
         if(m_reflectionCamera.commandBufferCount == 0)
-            m_reflectionCamera.AddCommandBuffer(UnityEngine.Rendering.CameraEvent.AfterEverything, m_copyDepthCB);
+            m_reflectionCamera.AddCommandBuffer(CameraEvent.AfterEverything, m_copyDepthCB);
     }
     void SetupConvolveParams(Vector3 camPos, Vector3 camRgt, Vector3 camUp, Vector3 camFwd, Matrix4x4 reflectionMatrix, Vector3 planeNormal) {
         camPos = reflectionMatrix.MultiplyPoint(camPos);
@@ -371,7 +306,8 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
         zparams.z = zparams.x / farPlaneDistance;
         zparams.z = zparams.y / farPlaneDistance;
 #if UNITY_5_5_OR_NEWER
-//requires version>5.5b10:      if(SystemInfo.usesReversedZBuffer)
+//requires version>5.5b10:
+        if(SystemInfo.usesReversedZBuffer)
         {
             zparams.y += zparams.x;
             zparams.x = -zparams.x;
@@ -479,9 +415,6 @@ m_reflectionCamera.transform.rotation = Quaternion.LookRotation(reflectedDir, sr
         m_reflectionCamera.useOcclusionCulling = false;
         m_reflectionCamera.nearClipPlane = nearPlaneDistance;
         m_reflectionCamera.farClipPlane = farPlaneDistance + nearPlaneDistance;
-
-        //if(!disableScattering && !m_reflectionCamera.GetComponent<AtmosphericScatteringDeferred>())
-        //  m_reflectionCamera.gameObject.AddComponent<AtmosphericScatteringDeferred>();
 
         return m_reflectionCamera;
     }
